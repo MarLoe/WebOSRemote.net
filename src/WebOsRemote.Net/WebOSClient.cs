@@ -15,10 +15,10 @@ using WebOsRemote.Net.WebSockets;
 
 namespace WebOsRemote.Net
 {
-    public class Client : IClient, IDisposable
+    public class WebOSClient : IWebOSClient, IDisposable
     {
         private readonly IFactory<ISocketConnection> _socketFactory;
-        private readonly ILogger<Client> _logger;
+        private readonly ILogger<WebOSClient> _logger;
 
         private readonly ConcurrentDictionary<string, TaskCompletionSource<Message>> _completionSources = new ConcurrentDictionary<string, TaskCompletionSource<Message>>();
 
@@ -29,15 +29,15 @@ namespace WebOsRemote.Net
 
         public int CommandTimeout { get; set; } = 5000;
 
-        public Client() : this(new NullLogger<Client>())
+        public WebOSClient() : this(new NullLogger<WebOSClient>())
         {
         }
 
-        public Client(ILogger<Client> logger) : this(new Factory<ISocketConnection>(() => new SocketConnection()), logger)
+        public WebOSClient(ILogger<WebOSClient> logger) : this(new Factory<ISocketConnection>(() => new SocketConnection()), logger)
         {
         }
 
-        internal Client(IFactory<ISocketConnection> socketFactory, ILogger<Client> logger)
+        internal WebOSClient(IFactory<ISocketConnection> socketFactory, ILogger<WebOSClient> logger)
         {
             _socketFactory = socketFactory;
             _logger = logger;
@@ -46,6 +46,8 @@ namespace WebOsRemote.Net
         #region IClient
 
         public event EventHandler<PairingUpdatedEventArgs> PairingUpdated;
+
+        public bool IsConnected => _socket?.IsAlive is true;
 
         public async Task ConnectAsync(IDevice device)
         {
@@ -66,7 +68,7 @@ namespace WebOsRemote.Net
             if (handshakeResponse.ReturnValue && handshakeResponse.Key != _device.PairingKey)
             {
                 _device.PairingKey = handshakeResponse.Key;
-                PairingUpdated?.Invoke(this, new() { Device = _device });
+                PairingUpdated?.Invoke(this, new(_device));
             }
 
             var mouseCommand = new MouseGetCommand();

@@ -9,12 +9,17 @@ namespace WebOsRemote.Net
     /// <summary>
     /// Client for communicating with a WebOS device.
     /// </summary>
-    public interface IClient
+    public interface IWebOSClient
     {
         /// <summary>
         /// Raised when the pairing key is updated.
         /// </summary>
         event EventHandler<PairingUpdatedEventArgs> PairingUpdated;
+
+        /// <summary>
+        /// Returns true if client has an ctive connection.
+        /// </summary>
+        bool IsConnected { get; }
 
         /// <summary>
         /// Connect to a <paramref name="device"/> and
@@ -54,13 +59,19 @@ namespace WebOsRemote.Net
     }
 
     /// <summary>
-    /// Event arguemnts for <see cref="IClient.PairingUpdated"/>.
+    /// Event arguemnts for <see cref="IWebOSClient.PairingUpdated"/>.
     /// </summary>
     public class PairingUpdatedEventArgs : EventArgs
     {
+
+        public PairingUpdatedEventArgs(IDevice device)
+        {
+            Device = device ?? throw new ArgumentNullException(nameof(device));
+        }
+
         /// <summary>
         /// The updated device.
         /// </summary>
-        public IDevice Device { get; init; }
+        public IDevice Device { get; }
     }
 }
