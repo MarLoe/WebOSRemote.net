@@ -1,5 +1,5 @@
 ﻿using System;
-using WebSocketSharp;
+using WebOsRemote.Net.Device;
 
 namespace WebOsRemote.Net.WebSockets
 {
@@ -19,9 +19,22 @@ namespace WebOsRemote.Net.WebSockets
         bool IsAlive { get; }
 
         /// <summary>
+        /// Raised when the connection is disconnected.
+        /// </summary>
+        event EventHandler OnDisconnected;
+
+        /// <summary>
         /// Raised when data is reeived from the WebOS device.
         /// </summary>
         event EventHandler<SocketMessageEventArgs> OnMessage;
+
+        /// <summary>
+        /// Connecto to the WebOS device.
+        /// </summary>
+        /// <param name="device">
+        /// The device to connect to.
+        /// </param>
+        void Connect(IDevice device);
 
         /// <summary>
         /// Connecto to the WebOS device.
