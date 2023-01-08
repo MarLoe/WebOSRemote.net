@@ -4,7 +4,7 @@ using WebSocketSharp;
 
 namespace WebOsRemote.Net.WebSockets
 {
-    public class SocketConnection : ISocketConnection
+    internal class SocketConnection : ISocketConnection
     {
         private WebSocket _socket;
 

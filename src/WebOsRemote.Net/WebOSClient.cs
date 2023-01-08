@@ -46,30 +46,53 @@ namespace WebOsRemote.Net
 
         #region IClient
 
+        public event EventHandler<ConnectionChangedEventArgs> ConnectionChanged;
+
         public event EventHandler<PairingUpdatedEventArgs> PairingUpdated;
 
-        public bool IsConnected => _socket?.IsAlive is true;
+        public virtual bool IsConnected => _socket?.IsAlive is true;
 
-        public async Task ConnectAsync(IDevice device)
+        public virtual bool IsPaired { get; private set; }
+
+
+        public virtual async Task Attach(IDevice device)
         {
-            CloseSockets();
-
-            _socket = _socketFactory.Create();
-            _socket.OnMessage += OnMessage;
-            await Task.Run(() => _socket.Connect(device));
-
-            if (!_socket.IsAlive)
+            if (device == _device && _socket?.IsAlive is true)
             {
-                throw new ConnectionException($"Unable to conenct to television at {device.HostName}.");
+                // All good - no need to reattach
+                return;
             }
+
+            CloseSockets();
 
             _device = device;
 
-            var handshakeResponse = await SendCommandAsync<HandshakeResponse>(new HandshakeCommand(_device.PairingKey));
-            if (handshakeResponse.ReturnValue && handshakeResponse.Key != _device.PairingKey)
+            _socket = _socketFactory.Create();
+            _socket.OnMessage += OnMessage;
+            _socket.OnDisconnected += (s, e) => ConnectionChanged?.Invoke(this, new(_device, false));
+
+            await Task.Run(() =>
             {
+                _socket.Connect(device);
+                if (!_socket.IsAlive)
+                {
+                    throw new ConnectionException($"Unable to conenct to WebOS device at {device.HostName}.");
+                }
+                ConnectionChanged?.Invoke(this, new(_device, true));
+            });
+        }
+
+        public virtual async Task ConnectAsync(IDevice device)
+        {
+            await Attach(device);
+
+            var handshakeResponse = await SendCommandAsync<HandshakeResponse>(new HandshakeCommand(_device.PairingKey));
+            if (handshakeResponse.ReturnValue)
+            {
+                var updated = _device.PairingKey != handshakeResponse.Key;
+                IsPaired = true;
                 _device.PairingKey = handshakeResponse.Key;
-                PairingUpdated?.Invoke(this, new(_device));
+                PairingUpdated?.Invoke(this, new(_device, updated));
             }
 
             var mouseCommand = new MouseGetCommand();
@@ -105,7 +128,7 @@ namespace WebOsRemote.Net
                 throw new InvalidOperationException("Please connect to a device before sending commands");
             }
 
-            if (_socket?.IsAlive is not true)
+            if (!IsPaired || _socket?.IsAlive is not true)
             {
                 await ConnectAsync(_device);
             }
@@ -163,7 +186,7 @@ namespace WebOsRemote.Net
                 return;
             }
 
-            if (_mouseSocket.IsAlive is false)
+            if (!IsPaired || _mouseSocket.IsAlive is false)
             {
                 await ConnectAsync(_device);
             }
