@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading;
 using System.Threading.Tasks;
 using WebOsRemote.Net.Commands;
 using WebOsRemote.Net.Commands.Tv;
@@ -48,6 +49,23 @@ namespace WebOsRemote.Net
         /// The response or Task failed on error.
         /// </returns>
         Task<TResponse> SendCommandAsync<TResponse>(CommandBase command) where TResponse : ResponseBase;
+
+        /// <summary>
+        /// Send command to the WebOS device.
+        /// </summary>
+        /// <typeparam name="TResponse">
+        /// The expected response type.
+        /// </typeparam>
+        /// <param name="command">
+        /// The command to send.
+        /// </param>
+        /// <param name="cancellationToken">
+        /// Cancellation token for aborting the command.
+        /// </param>
+        /// <returns>
+        /// The response or Task failed on error.
+        /// </returns>
+        Task<TResponse> SendCommandAsync<TResponse>(CommandBase command, CancellationToken cancellationToken) where TResponse : ResponseBase;
 
         /// <summary>
         /// Send remote control button press.

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Concurrent;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -55,7 +56,7 @@ namespace WebOsRemote.Net
 
             _socket = _socketFactory.Create();
             _socket.OnMessage += OnMessage;
-            await Task.Run(() => _socket.Connect($"ws://{device.HostName}:3000"));
+            await Task.Run(() => _socket.Connect(device));
 
             if (!_socket.IsAlive)
             {
@@ -84,13 +85,20 @@ namespace WebOsRemote.Net
             }
         }
 
-        public void Close()
+        public virtual void Close()
         {
             _device = null;
             CloseSockets();
         }
 
-        public virtual async Task<TResponse> SendCommandAsync<TResponse>(CommandBase command) where TResponse : ResponseBase
+        public virtual Task<TResponse> SendCommandAsync<TResponse>(CommandBase command) where TResponse : ResponseBase
+        {
+            // Create a default timeout - in case we never get a response.
+            var ctsTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+            return SendCommandAsync<TResponse>(command, ctsTimeout.Token);
+        }
+
+        public virtual async Task<TResponse> SendCommandAsync<TResponse>(CommandBase command, CancellationToken cancellationToken) where TResponse : ResponseBase
         {
             if (_device is null)
             {
@@ -125,8 +133,16 @@ namespace WebOsRemote.Net
             await Task.Run(() =>
             {
                 var json = JsonConvert.SerializeObject(request, SerializationSettings.Default);
-                _logger.LogTrace($"Sending: {json}");
+                _logger.LogTrace("Sending: {json}", json);
                 _socket.Send(json);
+            }, cancellationToken);
+
+            cancellationToken.Register(() =>
+            {
+                if (_completionSources.TryRemove(request.Id, out var taskCompletion))
+                {
+                    taskCompletion.TrySetException(new TimeoutException());
+                }
             });
 
             var response = await taskSource.Task;
@@ -152,7 +168,7 @@ namespace WebOsRemote.Net
                 await ConnectAsync(_device);
             }
 
-            _logger.LogTrace($"Sending Button: {type}");
+            _logger.LogTrace("Sending Button: {type}", type);
 
             _mouseSocket.Send($"type:button\nname:{type.ButtonCode}\n\n");
         }
@@ -162,8 +178,9 @@ namespace WebOsRemote.Net
 
         #region IDisposable
 
-        public void Dispose()
+        public virtual void Dispose()
         {
+            GC.SuppressFinalize(this);
             Close();
         }
 
@@ -172,7 +189,7 @@ namespace WebOsRemote.Net
 
         internal void OnMessage(object sender, SocketMessageEventArgs e)
         {
-            _logger.LogTrace($"Received: {e.Data}");
+            _logger.LogTrace("Received: {data}", e.Data);
 
             var response = JsonConvert.DeserializeObject<Message>(e.Data, SerializationSettings.Default);
 
@@ -184,7 +201,7 @@ namespace WebOsRemote.Net
 
             if (_completionSources.TryRemove(response.Id, out var taskCompletion))
             {
-                if (response.Type == "error")
+                if (response.Type is "error")
                 {
                     taskCompletion.TrySetException(new CommandException(response.Error));
                 }
