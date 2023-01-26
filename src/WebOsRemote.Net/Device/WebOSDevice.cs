@@ -6,15 +6,9 @@
     /// <seealso cref="IDevice"/>
     public class WebOSDevice : IDevice
     {
-        private string _hostName;
-
         #region IDevice
 
-        public string HostName
-        {
-            get => string.IsNullOrEmpty(_hostName) ? IPAddress : _hostName;
-            set => _hostName = value;
-        }
+        public string HostName { get; set; }
 
         public string IPAddress { get; set; }
 

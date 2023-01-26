@@ -12,7 +12,7 @@ namespace WebOsRemote.Net.WebSockets
 
         public string Url { get; private set; }
 
-        public bool IsAlive => _socket.IsAlive;
+        public bool IsAlive => _socket?.IsAlive is true;
 
         public event EventHandler OnDisconnected;
 
@@ -20,17 +20,12 @@ namespace WebOsRemote.Net.WebSockets
 
         public void Connect(IDevice device)
         {
-            Connect($"ws://{device.HostName}:3000");
+            Connect($"wss://{device.HostName ?? device.IPAddress}:3001", $"ws://{device.HostName ?? device.IPAddress}:3000");
         }
 
         public void Connect(string url)
         {
-            Url = url;
-
-            _socket = new WebSocket(Url);
-            _socket.OnClose += (s, e) => OnDisconnected?.Invoke(this, EventArgs.Empty);
-            _socket.OnMessage += (s, e) => OnMessage?.Invoke(this, new SocketMessageEventArgs(e.Data));
-            _socket.Connect();
+            Connect(url, null);
         }
 
         public void Send(string content)
@@ -45,5 +40,38 @@ namespace WebOsRemote.Net.WebSockets
         }
 
         #endregion
+
+        protected void Connect(string url, string fallbackUrl)
+        {
+            var socket = new WebSocket(url);
+            socket.Log.Level = LogLevel.Debug;
+
+            socket.OnMessage += (s, e) => OnMessage?.Invoke(this, new SocketMessageEventArgs(e.Data));
+            socket.OnClose += (s, e) =>
+            {
+                if (string.IsNullOrEmpty(fallbackUrl))
+                {
+                    OnDisconnected?.Invoke(this, EventArgs.Empty);
+                    return;
+                }
+                Connect(fallbackUrl, null);
+            };
+            if (socket.IsSecure)
+            {
+                socket.SslConfiguration.EnabledSslProtocols = System.Security.Authentication.SslProtocols.Tls12;
+            }
+            socket.Connect();
+
+            if (socket.ReadyState is WebSocketState.Connecting or WebSocketState.Open)
+            {
+                Url = url;
+                _socket = socket;
+
+                // Make sure OnDisconnected is called in the OnClose event
+                fallbackUrl = null;
+            }
+        }
+
+
     }
 }

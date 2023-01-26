@@ -10,12 +10,12 @@ namespace WebOsRemote.Net.Device
         /// <summary>
         /// Can be the host name or the IP address.
         /// </summary>
-        string HostName { get; }
+        string HostName { get; set; }
 
         /// <summary>
         /// The host IP address.
         /// </summary>
-        string IPAddress { get; }
+        string IPAddress { get; set; }
 
         /// <summary>
         /// The mac address - can be used for Wake.On-Lan (WOL) command

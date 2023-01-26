@@ -76,17 +76,23 @@ namespace WebOsRemote.Net
                 _socket.Connect(device);
                 if (!_socket.IsAlive)
                 {
-                    throw new ConnectionException($"Unable to conenct to WebOS device at {device.HostName}.");
+                    throw new ConnectionException($"Unable to conenct to WebOS device at {device.HostName ?? device.IPAddress}.");
                 }
                 ConnectionChanged?.Invoke(this, new(_device, true));
             });
         }
 
-        public virtual async Task ConnectAsync(IDevice device)
+        public virtual async Task ConnectAsync(CancellationToken cancellationToken = default)
         {
-            await Attach(device);
+            if (_device is null)
+            {
+                throw new InvalidOperationException("Please connect to a device before sending commands");
+            }
 
-            var handshakeResponse = await SendCommandAsync<HandshakeResponse>(new HandshakeCommand(_device.PairingKey));
+            // Attach existing device - just in case
+            await Attach(_device);
+
+            var handshakeResponse = await SendCommandAsyncInternal<HandshakeResponse>(new HandshakeCommand(_device.PairingKey), cancellationToken);
             if (handshakeResponse.ReturnValue)
             {
                 var updated = _device.PairingKey != handshakeResponse.Key;
@@ -95,15 +101,14 @@ namespace WebOsRemote.Net
                 PairingUpdated?.Invoke(this, new(_device, updated));
             }
 
-            var mouseCommand = new MouseGetCommand();
-            var mouseGetResponse = await SendCommandAsync<MouseGetResponse>(mouseCommand);
+            var mouseGetResponse = await SendCommandAsyncInternal<MouseGetResponse>(new MouseGetCommand(), cancellationToken);
             if (mouseGetResponse.ReturnValue && !string.IsNullOrEmpty(mouseGetResponse.SocketPath))
             {
                 _mouseSocket = _socketFactory.Create();
                 await Task.Run(() => _mouseSocket.Connect(mouseGetResponse.SocketPath));
                 if (!_mouseSocket.IsAlive)
                 {
-                    throw new ConnectionException($"Unable to conenct to television mouse service at {_device.HostName}.");
+                    throw new ConnectionException($"Unable to conenct to television mouse service at {_device.HostName ?? _device.IPAddress}.");
                 }
             }
         }
@@ -125,14 +130,100 @@ namespace WebOsRemote.Net
         {
             if (_device is null)
             {
-                throw new InvalidOperationException("Please connect to a device before sending commands");
+                throw new InvalidOperationException("Please attach to a device before sending commands");
             }
 
-            if (!IsPaired || _socket?.IsAlive is not true)
+            if (!IsPaired)
             {
-                await ConnectAsync(_device);
+                throw new InvalidOperationException("Please connect device to make handshake before sending commands");
             }
 
+            if (_socket?.IsAlive is not true)
+            {
+                await ConnectAsync(default);
+            }
+
+            return await SendCommandAsyncInternal<TResponse>(command, cancellationToken);
+        }
+
+
+        public async Task SendButtonAsync(ButtonType type)
+        {
+            if (_device is null)
+            {
+                throw new InvalidOperationException("Please attach to a device before sending commands");
+            }
+
+            if (!IsPaired)
+            {
+                throw new InvalidOperationException("Please connect device to make handshake before sending commands");
+            }
+
+            if (_mouseSocket is null)
+            {
+                // Mouse not supported
+                return;
+            }
+
+            if (_mouseSocket.IsAlive is not true)
+            {
+                await ConnectAsync(default);
+            }
+
+            SendButtonAsyncInternal(type);
+        }
+
+        #endregion
+
+
+        #region IDisposable
+
+        public virtual void Dispose()
+        {
+            GC.SuppressFinalize(this);
+            Close();
+        }
+
+        #endregion
+
+
+        #region Event Handlers
+
+        protected void OnMessage(object sender, SocketMessageEventArgs e)
+        {
+            _logger.LogTrace("Received: {data}", e.Data);
+
+            var response = JsonConvert.DeserializeObject<Message>(e.Data, SerializationSettings.Default);
+
+            // We may get multiple responses for register_0 - we can safely ignore this one!
+            if (response.Id == "register_0" && response.Payload.Value<string>("pairingType") == "PROMPT")
+            {
+                return;
+            }
+
+            if (_completionSources.TryRemove(response.Id, out var taskCompletion))
+            {
+                if (response.Type is "error")
+                {
+                    taskCompletion.TrySetException(new CommandException(response.Error));
+                }
+                else
+                {
+                    taskCompletion.TrySetResult(response);
+                }
+            }
+        }
+
+        #endregion
+
+
+        #region Internal Methods
+
+        /// <summary>
+        /// Send command without any prerequisite checks
+        /// </summary>
+        protected async Task<TResponse> SendCommandAsyncInternal<TResponse>(CommandBase command, CancellationToken cancellationToken = default) where TResponse : ResponseBase
+        {
             var request = new Message
             {
                 Uri = command.Uri,
@@ -169,74 +260,19 @@ namespace WebOsRemote.Net
             });
 
             var response = await taskSource.Task;
-
             return response.Payload.ToObject<TResponse>(JsonSerializer.CreateDefault(SerializationSettings.Default));
         }
 
-        public async Task SendButtonAsync(ButtonType type)
+        /// <summary>
+        /// Send button request without any prerequisite checks
+        /// </summary>
+        protected void SendButtonAsyncInternal(ButtonType type)
         {
-            if (_device is null)
-            {
-                throw new InvalidOperationException("Please connect to a device before sending commands");
-            }
-
-            if (_mouseSocket is null)
-            {
-                // Mouse not supported
-                return;
-            }
-
-            if (!IsPaired || _mouseSocket.IsAlive is false)
-            {
-                await ConnectAsync(_device);
-            }
-
             _logger.LogTrace("Sending Button: {type}", type);
-
             _mouseSocket.Send($"type:button\nname:{type.ButtonCode}\n\n");
         }
 
-        #endregion
-
-
-        #region IDisposable
-
-        public virtual void Dispose()
-        {
-            GC.SuppressFinalize(this);
-            Close();
-        }
-
-        #endregion
-
-
-        internal void OnMessage(object sender, SocketMessageEventArgs e)
-        {
-            _logger.LogTrace("Received: {data}", e.Data);
-
-            var response = JsonConvert.DeserializeObject<Message>(e.Data, SerializationSettings.Default);
-
-            // We may get multiple responses for register_0 - we can safely ignore this one!
-            if (response.Id == "register_0" && response.Payload.Value<string>("pairingType") == "PROMPT")
-            {
-                return;
-            }
-
-            if (_completionSources.TryRemove(response.Id, out var taskCompletion))
-            {
-                if (response.Type is "error")
-                {
-                    taskCompletion.TrySetException(new CommandException(response.Error));
-                }
-                else
-                {
-                    taskCompletion.TrySetResult(response);
-                }
-            }
-        }
-
-
-        internal void CloseSockets()
+        protected void CloseSockets()
         {
             _socket?.Close();
             _socket = null;
@@ -245,6 +281,7 @@ namespace WebOsRemote.Net
             _mouseSocket = null;
         }
 
+        #endregion
 
         internal void SetSocketsForTesting(ISocketConnection main, ISocketConnection mouse)
         {

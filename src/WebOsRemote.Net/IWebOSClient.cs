@@ -30,7 +30,7 @@ namespace WebOsRemote.Net
 
         /// <summary>
         /// Returns true if client has paired with device.<br/>
-        /// Pairing happens when<see cref="ConnectAsync(IDevice)"/> is called successfully.
+        /// Pairing happens when<see cref="ConnectAsync(CancellationToken)"/> is called successfully.
         /// </summary>
         bool IsPaired { get; }
 
@@ -51,10 +51,15 @@ namespace WebOsRemote.Net
         /// Connect to a <paramref name="device"/> and
         /// establish connection with a handshake.
         /// </summary>
-        /// <param name="device">
-        /// The device to connect to.
+        /// <param name="cancellationToken">
+        /// Connecting will start by sending a handshake. If the device is not
+        /// yet paired, a pairing request will be shown on screen. This means
+        /// that we will not get a response until the user has accpeted/rejected
+        /// the request and thus this method will not return.<br/>
+        /// The <paramref name="cancellationToken"/> allows for the handshake to
+        /// be cancelled.
         /// </param>
-        Task ConnectAsync(IDevice device);
+        Task ConnectAsync(CancellationToken cancellationToken);
 
         /// <summary>
         /// Close the connection.
