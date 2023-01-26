@@ -9,12 +9,30 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		..\README.md = ..\README.md
 	EndProjectSection
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WebOsRemote.Net", "WebOsRemote.Net\WebOsRemote.Net.csproj", "{14977400-CB5C-42A6-B89F-BDAA0D337FA7}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WebOSRemote.Net.Console", "WebOSRemote.Net.Console\WebOSRemote.Net.Console.csproj", "{7739FC99-8A7C-4917-B8B4-FEFFF7778A00}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WebOsRemote.Net.Tests", "WebOsRemote.Net.Tests\WebOsRemote.Net.Tests.csproj", "{08FAE41A-A131-4F63-8FC2-E29CEB6A6C14}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{14977400-CB5C-42A6-B89F-BDAA0D337FA7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{14977400-CB5C-42A6-B89F-BDAA0D337FA7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{14977400-CB5C-42A6-B89F-BDAA0D337FA7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{14977400-CB5C-42A6-B89F-BDAA0D337FA7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7739FC99-8A7C-4917-B8B4-FEFFF7778A00}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7739FC99-8A7C-4917-B8B4-FEFFF7778A00}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7739FC99-8A7C-4917-B8B4-FEFFF7778A00}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7739FC99-8A7C-4917-B8B4-FEFFF7778A00}.Release|Any CPU.Build.0 = Release|Any CPU
+		{08FAE41A-A131-4F63-8FC2-E29CEB6A6C14}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{08FAE41A-A131-4F63-8FC2-E29CEB6A6C14}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{08FAE41A-A131-4F63-8FC2-E29CEB6A6C14}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{08FAE41A-A131-4F63-8FC2-E29CEB6A6C14}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
