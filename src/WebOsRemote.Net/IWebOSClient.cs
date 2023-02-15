@@ -48,7 +48,7 @@ namespace WebOsRemote.Net
         Task Attach(IDevice device);
 
         /// <summary>
-        /// Connect to a <paramref name="device"/> and
+        /// Connect to the device that was attached using <see cref="Attach(IDevice)"/>.
         /// establish connection with a handshake.
         /// </summary>
         /// <param name="cancellationToken">

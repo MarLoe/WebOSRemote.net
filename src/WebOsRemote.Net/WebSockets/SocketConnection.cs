@@ -20,6 +20,7 @@ namespace WebOsRemote.Net.WebSockets
 
         public void Connect(IDevice device)
         {
+            ArgumentNullException.ThrowIfNull(device);
             Connect($"wss://{device.HostName ?? device.IPAddress}:3001", $"ws://{device.HostName ?? device.IPAddress}:3000");
         }
 

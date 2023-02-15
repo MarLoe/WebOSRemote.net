@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace WebOsRemote.Net.Device
+﻿namespace WebOsRemote.Net.Device
 {
     /// <summary>
     /// Device information for the WebOS device to control.

@@ -57,6 +57,8 @@ namespace WebOsRemote.Net
 
         public virtual async Task Attach(IDevice device)
         {
+            ArgumentNullException.ThrowIfNull(device);
+
             if (device == _device && _socket?.IsAlive is true)
             {
                 // All good - no need to reattach
@@ -68,25 +70,24 @@ namespace WebOsRemote.Net
             _device = device;
 
             _socket = _socketFactory.Create();
-            _socket.OnMessage += OnMessage;
-            _socket.OnDisconnected += (s, e) => ConnectionChanged?.Invoke(this, new(_device, false));
+            _socket.OnMessage += OnSocketMessage;
+            _socket.OnDisconnected += OnSocketDisconnect;
 
-            await Task.Run(() =>
+            await Task.Run(() => _socket.Connect(_device));
+
+            if (!_socket.IsAlive)
             {
-                _socket.Connect(device);
-                if (!_socket.IsAlive)
-                {
-                    throw new ConnectionException($"Unable to conenct to WebOS device at {device.HostName ?? device.IPAddress}.");
-                }
-                ConnectionChanged?.Invoke(this, new(_device, true));
-            });
+                throw new ConnectionException($"Unable to conenct to WebOS device at {device.HostName ?? device.IPAddress}.");
+            }
+
+            ConnectionChanged?.Invoke(this, new(_device, true));
         }
 
         public virtual async Task ConnectAsync(CancellationToken cancellationToken = default)
         {
             if (_device is null)
             {
-                throw new InvalidOperationException("Please connect to a device before sending commands");
+                throw new InvalidOperationException($@"Please call {nameof(Attach)}() before connecting");
             }
 
             // Attach existing device - just in case
@@ -189,7 +190,7 @@ namespace WebOsRemote.Net
 
         #region Event Handlers
 
-        protected void OnMessage(object sender, SocketMessageEventArgs e)
+        protected void OnSocketMessage(object sender, SocketMessageEventArgs e)
         {
             _logger.LogTrace("Received: {data}", e.Data);
 
@@ -212,6 +213,11 @@ namespace WebOsRemote.Net
                     taskCompletion.TrySetResult(response);
                 }
             }
+        }
+
+        protected void OnSocketDisconnect(object sender, EventArgs e)
+        {
+            ConnectionChanged?.Invoke(this, new(_device, false));
         }
 
         #endregion
@@ -274,8 +280,13 @@ namespace WebOsRemote.Net
 
         protected void CloseSockets()
         {
-            _socket?.Close();
-            _socket = null;
+            if (_socket is not null)
+            {
+                _socket.OnMessage -= OnSocketMessage;
+                _socket.OnDisconnected -= OnSocketDisconnect;
+                _socket?.Close();
+                _socket = null;
+            }
 
             _mouseSocket?.Close();
             _mouseSocket = null;
